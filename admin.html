@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin | Chá de Bebê</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+    }
+    
+    .admin-header {
+      background: #1a1a2e;
+      color: white;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .admin-header h1 { font-size: 1.5rem; }
+    
+    .logout-btn {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+    }
+    
+    .admin-container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    
+    .tab-btn {
+      padding: 12px 24px;
+      background: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.2s;
+    }
+    
+    .tab-btn.active {
+      background: #667eea;
+      color: white;
+    }
+    
+    .tab-panel {
+      display: none;
+      background: white;
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    
+    .tab-panel.active {
+      display: block;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 500;
+    }
+    
+    .form-group input, .form-group textarea, .form-group select {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      font-size: 14px;
+      outline: none;
+    }
+    
+    .form-group input:focus, .form-group textarea:focus {
+      border-color: #667eea;
+    }
+    
+    .btn {
+      padding: 12px 24px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    
+    .btn-danger {
+      background: #ef4444;
+    }
+    
+    .btn-success {
+      background: #10b981;
+    }
+    
+    .presentes-table {
+      width: 100%;
+      overflow-x: auto;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    
+    th {
+      background: #f8f9fa;
+      font-weight: 600;
+    }
+    
+    .presente-img {
+      width: 50px;
+      height: 50px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+    
+    .image-preview {
+      max-width: 200px;
+      margin-top: 10px;
+      border-radius: 8px;
+    }
+    
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    
+    .card {
+      background: #f8f9fa;
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    
+    .card h3 {
+      margin-bottom: 16px;
+    }
+    
+    .escolhas-list {
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .escolha-item {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    @media (max-width: 768px) {
+      .grid-2 { grid-template-columns: 1fr; }
+      .admin-container { padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+<div id="app"></div>
+
+<script src="auth.js"></script>
+<script>
+  let supabaseClient = null;
+  let presentes = [];
+  let escolhas = [];
+  let usuarios = [];
+  let configuracoes = {};
+  
+  async function init() {
+    await initAuth();
+    
+    if (!isLoggedIn()) {
+      window.location.href = 'login.html';
+      return;
+    }
+    
+    if (!isAdmin()) {
+      alert('Acesso negado. Você não tem permissão de administrador.');
+      window.location.href = 'index.html';
+      return;
+    }
+    
+    await carregarDados();
+    renderizar();
+  }
+  
+  async function carregarDados() {
+    const [presentesRes, escolhasRes, usuariosRes, configRes] = await Promise.all([
+      supabase.from('presentes').select('*').order('ordem'),
+      supabase.from('escolhas').select('*, perfis(nome), presentes(titulo)'),
+      supabase.from('perfis').select('*'),
+      supabase.from('configuracoes').select('chave, valor')
+    ]);
+    
+    presentes = presentesRes.data || [];
+    escolhas = escolhasRes.data || [];
+    usuarios = usuariosRes.data || [];
+    
+    if (configRes.data) {
+      configRes.data.forEach(c => { configuracoes[c.chave] = c.valor; });
+    }
+  }
+  
+  async function salvarPresente() {
+    const id = document.getElementById('presenteId').value;
+    const titulo = document.getElementById('presenteTitulo').value;
+    const descricao = document.getElementById('presenteDescricao').value;
+    const preco = parseFloat(document.getElementById('presentePreco').value) || 0;
+    const quantidadeMax = parseInt(document.getElementById('presenteQuantidade').value) || 1;
+    const linkCompra = document.getElementById('presenteLink').value;
+    const ordem = parseInt(document.getElementById('presenteOrdem').value) || 0;
+    
+    if (!titulo) {
+      alert('Título é obrigatório');
+      return;
+    }
+    
+    // Processar imagem base64
+    const fileInput = document.getElementById('presenteImagem');
+    let imagemBase64 = document.getElementById('presenteImagemPreview').src;
+    
+    if (fileInput.files && fileInput.files[0]) {
+      imagemBase64 = await fileToBase64(fileInput.files[0]);
+    }
+    
+    const presente = {
+      titulo,
+      descricao,
+      preco,
+      quantidade_max: quantidadeMax,
+      quantidade_restante: quantidadeMax,
+      link_compra: linkCompra,
+      ordem,
+      imagem_base64: imagemBase64
+    };
+    
+    let error;
+    if (id) {
+      const { error: e } = await supabase
+        .from('presentes')
+        .update(presente)
+        .eq('id', id);
+      error = e;
+    } else {
+      const { error: e } = await supabase
+        .from('presentes')
+        .insert(presente);
+      error = e;
+    }
+    
+    if (!error) {
+      alert(id ? 'Presente atualizado!' : 'Presente adicionado!');
+      limparFormPresente();
+      await carregarDados();
+      renderizar();
+    } else {
+      alert('Erro: ' + error.message);
+    }
+  }
+  
+  function editarPresente(presente) {
+    document.getElementById('presenteId').value = presente.id;
+    document.getElementById('presenteTitulo').value = presente.titulo;
+    document.getElementById('presenteDescricao').value = presente.descricao || '';
+    document.getElementById('presentePreco').value = presente.preco || '';
+    document.getElementById('presenteQuantidade').value = presente.quantidade_max || 1;
+    document.getElementById('presenteLink').value = presente.link_compra || '';
+    document.getElementById('presenteOrdem').value = presente.ordem || 0;
+    
+    const preview = document.getElementById('presenteImagemPreview');
+    if (presente.imagem_base64) {
+      preview.src = presente.imagem_base64;
+      preview.style.display = 'block';
+    } else {
+      preview.style.display = 'none';
+    }
+    
+    document.getElementById('formTitle').textContent = '✏️ Editar Presente';
+    document.getElementById('btnDelete').style.display = 'inline-block';
+  }
+  
+  async function excluirPresente() {
+    const id = document.getElementById('presenteId').value;
+    if (!id) return;
+    
+    if (!confirm('Tem certeza que deseja excluir este presente?')) return;
+    
+    const { error } = await supabase
+      .from('presentes')
+      .delete()
+      .eq('id', id);
+    
+    if (!error) {
+      alert('Presente excluído!');
+      limparFormPresente();
+      await carregarDados();
+      renderizar();
+    } else {
+      alert('Erro: ' + error.message);
+    }
+  }
+  
+  function limparFormPresente() {
+    document.getElementById('presenteId').value = '';
+    document.getElementById('presenteTitulo').value = '';
+    document.getElementById('presenteDescricao').value = '';
+    document.getElementById('presentePreco').value = '';
+    document.getElementById('presenteQuantidade').value = '1';
+    document.getElementById('presenteLink').value = '';
+    document.getElementById('presenteOrdem').value = '0';
+    document.getElementById('presenteImagem').value = '';
+    document.getElementById('presenteImagemPreview').style.display = 'none';
+    document.getElementById('formTitle').textContent = '➕ Adicionar Novo Presente';
+    document.getElementById('btnDelete').style.display = 'none';
+  }
+  
+  async function salvarConfiguracao() {
+    const configs = [
+      'evento_titulo', 'evento_data', 'evento_local', 'evento_descricao',
+      'pix_chave', 'pix_nome', 'background_color'
+    ];
+    
+    for (const chave of configs) {
+      const valor = document.getElementById(`config_${chave}`)?.value || '';
+      if (valor !== undefined) {
+        await supabase
+          .from('configuracoes')
+          .upsert({ chave, valor, atualizado_em: new Date() });
+      }
+    }
+    
+    // Processar imagem de capa
+    const capaInput = document.getElementById('config_imagem_capa');
+    if (capaInput.files && capaInput.files[0]) {
+      const base64 = await fileToBase64(capaInput.files[0]);
+      await supabase
+        .from('configuracoes')
+        .upsert({ chave: 'imagem_capa_base64', valor: base64, atualizado_em: new Date() });
+    }
+    
+    alert('Configurações salvas!');
+    await carregarDados();
+    renderizar();
+  }
+  
+  function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+  
+  function previewImagem(input, previewId) {
+    if (input.files && input.files[0]) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById(previewId).src = e.target.result;
+        document.getElementById(previewId).style.display = 'block';
+      };
+      reader.readAsDataURL(input.files[0]);
+    }
+  }
+  
+  function renderizar() {
+    const user = getUser();
+    
+    document.getElementById('app').innerHTML = `
+      <div class="admin-header">
+        <h1>⚙️ Painel Administrativo - Chá de Bebê</h1>
+        <div>
+          <span>👤 ${user.perfil?.nome || user.email}</span>
+          <button class="logout-btn" onclick="logoutClick()">Sair</button>
+          <button class="logout-btn" onclick="window.location.href='index.html'" style="margin-left:10px;">🔙 Site</button>
+        </div>
+      </div>
+      
+      <div class="admin-container">
+        <div class="tabs">
+          <button class="tab-btn active" data-tab="presentes">🎁 Presentes</button>
+          <button class="tab-btn" data-tab="escolhas">📋 Escolhas</button>
+          <button class="tab-btn" data-tab="config">⚙️ Configurações</button>
+          <button class="tab-btn" data-tab="usuarios">👥 Usuários</button>
+        </div>
+        
+        <div id="tab-presentes" class="tab-panel active">
+          <div class="grid-2">
+            <div class="card">
+              <h3 id="formTitle">➕ Adicionar Novo Presente</h3>
+              <input type="hidden" id="presenteId">
+              <div class="form-group">
+                <label>Título *</label>
+                <input type="text" id="presenteTitulo" placeholder="Ex: Kit de Banho">
+              </div>
+              <div class="form-group">
+                <label>Descrição</label>
+                <textarea id="presenteDescricao" rows="3" placeholder="Descrição do presente..."></textarea>
+              </div>
+              <div class="form-group">
+                <label>Preço (R$)</label>
+                <input type="number" id="presentePreco" step="0.01" placeholder="0,00">
+              </div>
+              <div class="form-group">
+                <label>Quantidade Máxima</label>
+                <input type="number" id="presenteQuantidade" value="1" min="1">
+              </div>
+              <div class="form-group">
+                <label>Link para compra (opcional)</label>
+                <input type="url" id="presenteLink" placeholder="https://...">
+              </div>
+              <div class="form-group">
+                <label>Ordem (menor = mais acima)</label>
+                <input type="number" id="presenteOrdem" value="0">
+              </div>
+              <div class="form-group">
+                <label>Imagem</label>
+                <input type="file" id="presenteImagem" accept="image/*" onchange="previewImagem(this, 'presenteImagemPreview')">
+                <img id="presenteImagemPreview" class="image-preview" style="display:none; max-width:150px;">
+              </div>
+              <div style="display:flex; gap:10px;">
+                <button class="btn" onclick="salvarPresente()">💾 Salvar</button>
+                <button class="btn btn-danger" id="btnDelete" onclick="excluirPresente()" style="display:none;">🗑️ Excluir</button>
+                <button class="btn" onclick="limparFormPresente()">↺ Limpar</button>
+              </div>
+            </div>
+            
+            <div class="card">
+              <h3>📋 Lista de Presentes</h3>
+              <div class="presentes-table">
+                <table>
+                  <thead>
+                    <tr><th>Imagem</th><th>Título</th><th>Preço</th><th>Restante</th><th>Ações</th></tr>
+                  </thead>
+                  <tbody>
+                    ${presentes.map(p => `
+                      <tr>
+                        <td>${p.imagem_base64 ? `<img src="${p.imagem_base64}" class="presente-img">` : '🎁'}</td>
+                        <td>${escapeHtml(p.titulo)}</td>
+                        <td>${p.preco ? formatarPreco(p.preco) : '-'}</td>
+                        <td>${p.quantidade_restante}/${p.quantidade_max}</td>
+                        <td><button class="btn" onclick="editarPresente(${JSON.stringify(p).replace(/"/g, '&quot;')})">✏️</button></td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div id="tab-escolhas" class="tab-panel">
+          <div class="card">
+            <h3>📊 Escolhas dos Convidados</h3>
+            <div class="escolhas-list">
+              ${escolhas.map(e => `
+                <div class="escolha-item">
+                  <div>
+                    <strong>${escapeHtml(e.perfis?.nome || 'Usuário')}</strong><br>
+                    <small>🎁 ${escapeHtml(e.presentes?.titulo || 'Presente')}</small><br>
+                    <small>💳 ${e.tipo_pagamento === 'presente' ? 'Compra do presente' : 'Contribuição PIX'}</small>
+                  </div>
+                  <div>
+                    ${e.valor ? formatarPreco(e.valor) : ''}
+                    <small style="display:block;">${new Date(e.criado_em).toLocaleDateString()}</small>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+        
+        <div id="tab-config" class="tab-panel">
+          <div class="card">
+            <h3>⚙️ Configurações do Evento</h3>
+            <div class="grid-2">
+              <div>
+                <div class="form-group">
+                  <label>Título do Evento</label>
+                  <input type="text" id="config_evento_titulo" value="${escapeHtml(configuracoes.evento_titulo || '')}">
+                </div>
+                <div class="form-group">
+                  <label>Data do Evento</label>
+                  <input type="date" id="config_evento_data" value="${configuracoes.evento_data || ''}">
+                </div>
+                <div class="form-group">
+                  <label>Local</label>
+                  <input type="text" id="config_evento_local" value="${escapeHtml(configuracoes.evento_local || '')}">
+                </div>
+                <div class="form-group">
+                  <label>Descrição</label>
+                  <textarea id="config_evento_descricao" rows="3">${escapeHtml(configuracoes.evento_descricao || '')}</textarea>
+                </div>
+              </div>
+              <div>
+                <div class="form-group">
+                  <label>Chave PIX</label>
+                  <input type="text" id="config_pix_chave" value="${escapeHtml(configuracoes.pix_chave || '')}">
+                </div>
+                <div class="form-group">
+                  <label>Nome do Beneficiário (PIX)</label>
+                  <input type="text" id="config_pix_nome" value="${escapeHtml(configuracoes.pix_nome || '')}">
+                </div>
+                <div class="form-group">
+                  <label>Imagem de Capa</label>
+                  <input type="file" id="config_imagem_capa" accept="image/*">
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-success" onclick="salvarConfiguracao()">💾 Salvar Configurações</button>
+          </div>
+        </div>
+        
+        <div id="tab-usuarios" class="tab-panel">
+          <div class="card">
+            <h3>👥 Usuários Cadastrados</h3>
+            <div class="presentes-table">
+              <table>
+                <thead>
+                  <tr><th>Nome</th><th>Email</th><th>Telefone</th><th>Tipo</th><th>Cadastro</th></tr>
+                </thead>
+                <tbody>
+                  ${usuarios.map(u => `
+                    <tr>
+                      <td>${escapeHtml(u.nome)}</td>
+                      <td>${escapeHtml(u.email)}</td>
+                      <td>${escapeHtml(u.telefone || '-')}</td>
+                      <td>${u.tipo === 'admin' ? '👑 Admin' : '👤 Usuário'}</td>
+                      <td>${new Date(u.criado_em).toLocaleDateString()}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Eventos das abas
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.onclick = () => {
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`tab-${tab}`).classList.add('active');
+      };
+    });
+  }
+  
+  function formatarPreco(valor) {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: 'BRL'
+    }).format(valor);
+  }
+  
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  
+  async function logoutClick() {
+    await logout();
+    window.location.href = 'login.html';
+  }
+  
+  // Expor funções globalmente
+  window.salvarPresente = salvarPresente;
+  window.editarPresente = editarPresente;
+  window.excluirPresente = excluirPresente;
+  window.limparFormPresente = limparFormPresente;
+  window.salvarConfiguracao = salvarConfiguracao;
+  window.previewImagem = previewImagem;
+  window.logoutClick = logoutClick;
+  window.formatarPreco = formatarPreco;
+  window.escapeHtml = escapeHtml;
+  
+  init();
+</script>
+</body>
+</html>
