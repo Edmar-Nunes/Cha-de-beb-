@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chá de Bebê do Enzo — Lista de Presentes</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --cream:    #fdf8f0;
+      --sand:     #f2e8d5;
+      --rose:     #d4826a;
+      --rose-dk:  #b36650;
+      --sage:     #6b8f71;
+      --sage-lt:  #eaf2eb;
+      --ink:      #1c1c1e;
+      --muted:    #7a7a7a;
+      --border:   #e8ddd0;
+      --white:    #ffffff;
+      --radius:   16px;
+      --radius-sm: 10px;
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--cream);
+      min-height: 100vh;
+      color: var(--ink);
+    }
+
+    /* ── Topbar ── */
+    .topbar {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(253,248,240,0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 38px; height: 38px;
+      background: var(--rose);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--white);
+      font-weight: 600; font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .user-name { font-weight: 500; font-size: 15px; }
+    .user-badge {
+      background: var(--sage-lt);
+      color: var(--sage);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 100px;
+      letter-spacing: 0.3px;
+    }
+
+    .topbar-actions { display: flex; gap: 8px; }
+
+    .btn-ghost {
+      padding: 9px 18px;
+      border: 1.5px solid var(--border);
+      border-radius: 100px;
+      background: transparent;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px; font-weight: 500;
+      color: var(--muted); cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-ghost:hover { background: var(--sand); color: var(--ink); }
+
+    /* ── Hero ── */
+    .hero {
+      background: var(--sand);
+      padding: 64px 24px 80px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 30% 50%, rgba(212,130,106,0.12), transparent 60%),
+                  radial-gradient(ellipse at 70% 50%, rgba(107,143,113,0.10), transparent 60%);
+    }
+
+    .hero-inner { position: relative; z-index: 1; }
+
+    .hero-tag {
+      display: inline-block;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 6px 18px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 20px;
+    }
+
+    .hero h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2.4rem, 5vw, 4rem);
+      font-weight: 700;
+      line-height: 1.1;
+      margin-bottom: 16px;
+      color: var(--ink);
+    }
+
+    .hero h1 em { font-style: italic; color: var(--rose); }
+
+    .hero p {
+      font-size: 1.05rem;
+      color: var(--muted);
+      font-weight: 300;
+      max-width: 480px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+
+    /* ── Event info bar ── */
+    .event-bar {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 32px;
+      max-width: 720px;
+      margin: -36px auto 48px;
+      position: relative; z-index: 2;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      justify-content: center;
+      box-shadow: 0 4px 24px rgba(28,28,30,0.06);
+    }
+
+    .event-item { text-align: center; }
+    .event-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
+    .event-value { font-size: 15px; font-weight: 500; color: var(--ink); }
+
+    /* ── Grid ── */
+    .grid-container {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 0 24px 64px;
+    }
+
+    .section-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem;
+      font-weight: 500;
+      color: var(--ink);
+      margin-bottom: 28px;
+    }
+
+    .presentes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 24px;
+    }
+
+    /* ── Card ── */
+    .card {
+      background: var(--white);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      transition: transform 0.25s, box-shadow 0.25s;
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 48px rgba(28,28,30,0.09);
+    }
+
+    .card.esgotado { opacity: 0.55; pointer-events: none; }
+    .card.esgotado:hover { transform: none; }
+
+    .card-image {
+      height: 210px;
+      background: var(--sand);
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .card-image img { width: 100%; height: 100%; object-fit: cover; }
+    .card-image-icon { font-size: 52px; color: var(--border); }
+
+    .card-badge {
+      position: absolute; top: 12px; right: 12px;
+      background: var(--sage);
+      color: var(--white);
+      font-size: 11px; font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 100px;
+    }
+
+    .card-badge.esgotado-badge { background: var(--muted); }
+
+    .card-body { padding: 20px; }
+
+    .card-title {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.15rem;
+      font-weight: 500;
+      margin-bottom: 6px;
+      color: var(--ink);
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+      margin-bottom: 14px;
+      font-weight: 300;
+    }
+
+    .card-price {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: var(--rose);
+      margin-bottom: 6px;
+    }
+
+    .card-stock {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+
+    .card-chosen {
+      background: var(--sage-lt);
+      color: var(--sage);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    /* Buttons */
+    .btn-primary {
+      width: 100%;
+      padding: 13px;
+      background: var(--rose);
+      color: var(--white);
+      border: none; border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px; font-weight: 500;
+      cursor: pointer; transition: background 0.2s;
+      margin-bottom: 8px;
+    }
+
+    .btn-primary:hover { background: var(--rose-dk); }
+    .btn-primary:disabled { background: #c0b8af; cursor: not-allowed; }
+
+    .btn-secondary {
+      width: 100%;
+      padding: 12px;
+      background: var(--sage-lt);
+      color: var(--sage);
+      border: 1.5px solid rgba(107,143,113,0.25);
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px; font-weight: 500;
+      cursor: pointer; transition: background 0.2s;
+    }
+
+    .btn-secondary:hover { background: #d4e8d5; }
+
+    /* ── Comments ── */
+    .comments-toggle {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: var(--muted);
+      cursor: pointer; margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
+    }
+
+    .comments-toggle:hover { color: var(--rose); }
+
+    .comments-body { display: none; margin-top: 14px; }
+    .comments-body.open { display: block; animation: fadeIn 0.2s ease; }
+
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .comment {
+      background: var(--cream);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      font-size: 13px;
+    }
+
+    .comment-author { font-weight: 600; margin-bottom: 3px; }
+    .comment-text { color: var(--muted); line-height: 1.5; }
+
+    .comment-reactions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+
+    .reaction-btn {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 3px 10px;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .reaction-btn.active {
+      background: var(--sand);
+      border-color: var(--rose);
+    }
+
+    .comment-input-row {
+      display: flex; gap: 8px; margin-top: 12px;
+    }
+
+    .comment-input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      outline: none;
+      background: var(--white);
+    }
+
+    .comment-input:focus { border-color: var(--rose); }
+
+    .btn-send {
+      padding: 10px 16px;
+      background: var(--rose);
+      color: var(--white);
+      border: none; border-radius: var(--radius-sm);
+      font-size: 13px; cursor: pointer;
+      font-family: 'DM Sans', sans-serif;
+    }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; z-index: 200;
+      background: rgba(28,28,30,0.45);
+      backdrop-filter: blur(4px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px;
+      opacity: 0; pointer-events: none;
+      transition: opacity 0.25s;
+    }
+
+    .modal-overlay.open { opacity: 1; pointer-events: all; }
+
+    .modal {
+      background: var(--white);
+      border-radius: var(--radius);
+      padding: 32px;
+      width: 100%; max-width: 460px;
+      position: relative;
+      transform: translateY(12px);
+      transition: transform 0.25s;
+    }
+
+    .modal-overlay.open .modal { transform: translateY(0); }
+
+    .modal h3 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.4rem;
+      margin-bottom: 8px;
+    }
+
+    .modal-subtitle { color: var(--muted); font-size: 14px; margin-bottom: 24px; }
+
+    .modal-close {
+      position: absolute; top: 16px; right: 16px;
+      background: var(--sand); border: none;
+      width: 32px; height: 32px; border-radius: 50%;
+      font-size: 18px; cursor: pointer; color: var(--muted);
+    }
+
+    .choice-option {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 18px;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      margin-bottom: 12px;
+    }
+
+    .choice-option:hover {
+      border-color: var(--rose);
+      background: #fff8f5;
+    }
+
+    .choice-option h4 { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+    .choice-option p  { font-size: 13px; color: var(--muted); }
+
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .field textarea {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 14px;
+      resize: none;
+      outline: none;
+    }
+    .field textarea:focus { border-color: var(--rose); }
+
+    /* ── Toast ── */
+    .toast-container {
+      position: fixed; bottom: 24px; right: 24px;
+      z-index: 999;
+      display: flex; flex-direction: column; gap: 10px;
+    }
+
+    .toast {
+      padding: 14px 20px;
+      border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 500;
+      box-shadow: 0 4px 24px rgba(28,28,30,0.12);
+      animation: toastIn 0.25s ease;
+      max-width: 340px;
+    }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateX(12px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .toast.success { background: var(--sage); color: var(--white); }
+    .toast.error   { background: #dc2626; color: var(--white); }
+    .toast.info    { background: var(--ink); color: var(--white); }
+
+    /* ── Loading ── */
+    .skeleton {
+      background: linear-gradient(90deg, var(--sand) 25%, var(--border) 50%, var(--sand) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: var(--radius-sm);
+    }
+
+    @keyframes shimmer {
+      from { background-position: 200% 0; }
+      to   { background-position: -200% 0; }
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .event-bar { flex-direction: column; gap: 16px; padding: 20px; margin-inline: 16px; }
+      .presentes-grid { grid-template-columns: 1fr; }
+      .hero { padding: 48px 20px 64px; }
+      .grid-container { padding-inline: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar" id="topbar">
+  <div class="user-info">
+    <div class="avatar" id="avatarInitial">?</div>
+    <div>
+      <div class="user-name" id="userName">Carregando...</div>
+    </div>
+    <span class="user-badge" id="chosenBadge" style="display:none">🎁 Presente escolhido</span>
+  </div>
+  <div class="topbar-actions" id="topbarActions"></div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-inner">
+    <div class="hero-tag">✨ Lista de presentes</div>
+    <h1 id="heroTitle">Chá de Bebê<br>do <em>Enzo</em></h1>
+    <p id="heroDesc">Venha celebrar conosco a chegada do nosso pequenino!</p>
+  </div>
+</div>
+
+<!-- Event bar -->
+<div class="event-bar">
+  <div class="event-item">
+    <div class="event-label">📅 Data</div>
+    <div class="event-value" id="eventoData">—</div>
+  </div>
+  <div class="event-item">
+    <div class="event-label">📍 Local</div>
+    <div class="event-value" id="eventoLocal">—</div>
+  </div>
+  <div class="event-item">
+    <div class="event-label">💰 PIX</div>
+    <div class="event-value" id="eventoPix">—</div>
+  </div>
+</div>
+
+<!-- Grid -->
+<div class="grid-container">
+  <div class="section-title">Escolha um presente 🎁</div>
+  <div class="presentes-grid" id="presentesGrid">
+    ${[1,2,3,4,5,6].map(() => `
+      <div class="card">
+        <div class="card-image skeleton"></div>
+        <div class="card-body">
+          <div class="skeleton" style="height:20px;width:60%;margin-bottom:12px;"></div>
+          <div class="skeleton" style="height:14px;width:90%;margin-bottom:8px;"></div>
+          <div class="skeleton" style="height:14px;width:70%;margin-bottom:16px;"></div>
+          <div class="skeleton" style="height:42px;"></div>
+        </div>
+      </div>
+    `).join('')}
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <button class="modal-close" onclick="fecharModal()">×</button>
+    <h3 id="modalTitle">Escolher presente</h3>
+    <p class="modal-subtitle" id="modalSubtitle"></p>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toast-container" id="toasts"></div>
+
+<script src="auth.js"></script>
+<script>
+  let presentes   = [];
+  let meuPresente = null;
+  let config      = {};
+  let comentariosCache = {};
+
+  // ─── Init ─────────────────────────────────────────────────────────────────
+
+  async function init() {
+    await initAuth();
+    if (!isLoggedIn()) { window.location.href = 'login.html'; return; }
+
+    const user = getUser();
+    document.getElementById('avatarInitial').textContent = (user.perfil?.nome || user.email)[0].toUpperCase();
+    document.getElementById('userName').textContent = 'Olá, ' + (user.perfil?.nome?.split(' ')[0] || user.email);
+
+    if (isAdmin()) {
+      document.getElementById('topbarActions').innerHTML = `
+        <button class="btn-ghost" onclick="window.location.href='admin.html'">⚙️ Admin</button>
+        <button class="btn-ghost" onclick="fazerLogout()">Sair</button>
+      `;
+    } else {
+      document.getElementById('topbarActions').innerHTML = `
+        <button class="btn-ghost" onclick="fazerLogout()">Sair</button>
+      `;
+    }
+
+    await Promise.all([carregarConfig(), carregarPresentes(), carregarMinhaEscolha()]);
+    renderizarGrid();
+  }
+
+  // ─── Dados ────────────────────────────────────────────────────────────────
+
+  async function carregarConfig() {
+    const { data } = await supabase.from('configuracoes').select('chave, valor');
+    if (data) data.forEach(r => config[r.chave] = r.valor);
+
+    document.getElementById('heroTitle').innerHTML =
+      (config.evento_titulo || 'Chá de Bebê').replace(/do (\w+)/i, 'do <em>$1</em>');
+    document.getElementById('heroDesc').textContent  = config.evento_descricao || '';
+
+    if (config.evento_data) {
+      const d = new Date(config.evento_data + 'T12:00:00');
+      document.getElementById('eventoData').textContent = d.toLocaleDateString('pt-BR', {
+        day: '2-digit', month: 'long', year: 'numeric'
+      });
+    }
+    document.getElementById('eventoLocal').textContent = config.evento_local || '—';
+    document.getElementById('eventoPix').textContent   = config.pix_chave   || '—';
+  }
+
+  async function carregarPresentes() {
+    const { data } = await supabase
+      .from('presentes')
+      .select('*')
+      .eq('status', 'ativo')
+      .order('ordem');
+    presentes = data || [];
+  }
+
+  async function carregarMinhaEscolha() {
+    const user = getUser();
+    const { data } = await supabase
+      .from('escolhas')
+      .select('*, presentes(titulo)')
+      .eq('usuario_id', user.id)
+      .maybeSingle();
+    meuPresente = data;
+
+    if (meuPresente) {
+      document.getElementById('chosenBadge').style.display = 'inline-flex';
+    }
+  }
+
+  async function carregarComentarios(presenteId) {
+    if (comentariosCache[presenteId]) return comentariosCache[presenteId];
+
+    const { data } = await supabase
+      .from('comentarios')
+      .select('*, perfis(nome), reacoes(*)')
+      .eq('presente_id', presenteId)
+      .order('criado_em');
+
+    comentariosCache[presenteId] = data || [];
+    return comentariosCache[presenteId];
+  }
+
+  // ─── Renderizar ───────────────────────────────────────────────────────────
+
+  async function renderizarGrid() {
+    const grid = document.getElementById('presentesGrid');
+
+    if (presentes.length === 0) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:60px 0;color:var(--muted)">
+        Nenhum presente disponível no momento.
+      </div>`;
+      return;
+    }
+
+    const cards = await Promise.all(presentes.map(renderizarCard));
+    grid.innerHTML = cards.join('');
+    bindCardEvents();
+  }
+
+  async function renderizarCard(p) {
+    const user     = getUser();
+    const esgotado = p.quantidade_restante <= 0;
+    const jaEscolhi= meuPresente?.presente_id === p.id;
+    const comentarios = await carregarComentarios(p.id);
+
+    const comentariosHtml = comentarios.map(c => {
+      const reacoes = (c.reacoes || []);
+      const emojiMap = {};
+      reacoes.forEach(r => {
+        if (!emojiMap[r.emoji]) emojiMap[r.emoji] = [];
+        emojiMap[r.emoji].push(r.usuario_id);
+      });
+      const reacoesHtml = Object.entries(emojiMap).map(([emoji, users]) => {
+        const ativo = users.includes(user.id);
+        return `<button class="reaction-btn ${ativo ? 'active' : ''}"
+          data-cid="${c.id}" data-emoji="${emoji}">${emoji} ${users.length}</button>`;
+      }).join('');
+
+      return `
+        <div class="comment">
+          <div class="comment-author">${esc(c.perfis?.nome || 'Anônimo')}</div>
+          <div class="comment-text">${esc(c.comentario)}</div>
+          ${reacoesHtml ? `<div class="comment-reactions">${reacoesHtml}</div>` : ''}
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="card ${esgotado ? 'esgotado' : ''}" id="card-${p.id}">
+        <div class="card-image">
+          ${p.imagem_base64
+            ? `<img src="${p.imagem_base64}" alt="${esc(p.titulo)}" loading="lazy">`
+            : `<div class="card-image-icon">🎁</div>`}
+          ${esgotado
+            ? `<span class="card-badge esgotado-badge">Esgotado</span>`
+            : (jaEscolhi ? `<span class="card-badge">Escolhido por mim ✓</span>` : '')}
+        </div>
+        <div class="card-body">
+          <div class="card-title">${esc(p.titulo)}</div>
+          ${p.descricao ? `<div class="card-desc">${esc(p.descricao)}</div>` : ''}
+          ${p.preco ? `<div class="card-price">${moeda(p.preco)}</div>` : ''}
+          <div class="card-stock">
+            ${esgotado ? '🎁 Já escolhido' : `📦 ${p.quantidade_restante} de ${p.quantidade_max} disponível`}
+          </div>
+
+          ${jaEscolhi ? `
+            <div class="card-chosen">✅ Você escolheu este presente!
+              ${meuPresente.tipo_pagamento === 'pix' ? '<br><span style="font-size:12px;opacity:.8">Pagamento via PIX</span>' : ''}
+            </div>` : ''}
+
+          ${!jaEscolhi && !esgotado && !meuPresente ? `
+            <button class="btn-primary" data-action="escolher" data-id="${p.id}"
+              data-titulo="${esc(p.titulo)}" data-preco="${p.preco || 0}">
+              🎁 Quero este presente
+            </button>` : ''}
+
+          ${p.link_compra && !esgotado ? `
+            <a href="${p.link_compra}" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:12px;color:var(--muted);margin-top:8px;text-decoration:none;">
+              Ver onde comprar ↗
+            </a>` : ''}
+
+          <!-- Comments -->
+          <div class="comments-toggle" data-pid="${p.id}">
+            💬 <span>${comentarios.length} comentário${comentarios.length !== 1 ? 's' : ''}</span>
+            <span style="margin-left:auto;">▾</span>
+          </div>
+          <div class="comments-body" id="cb-${p.id}">
+            ${comentariosHtml}
+            <div class="comment-input-row">
+              <input class="comment-input" id="ci-${p.id}" placeholder="Escreva um comentário...">
+              <button class="btn-send" data-action="comentar" data-id="${p.id}">Enviar</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function bindCardEvents() {
+    // Escolher
+    document.querySelectorAll('[data-action="escolher"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        abrirModal(btn.dataset.id, btn.dataset.titulo, parseFloat(btn.dataset.preco));
+      });
+    });
+
+    // Toggle comentários
+    document.querySelectorAll('.comments-toggle').forEach(el => {
+      el.addEventListener('click', () => {
+        document.getElementById('cb-' + el.dataset.pid)?.classList.toggle('open');
+      });
+    });
+
+    // Comentar
+    document.querySelectorAll('[data-action="comentar"]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const input = document.getElementById('ci-' + btn.dataset.id);
+        if (input?.value.trim()) enviarComentario(btn.dataset.id, input.value.trim());
+      });
+    });
+
+    // Reação
+    document.querySelectorAll('.reaction-btn').forEach(btn => {
+      btn.addEventListener('click', () => reagir(btn.dataset.cid, btn.dataset.emoji));
+    });
+  }
+
+  // ─── Modal de escolha ─────────────────────────────────────────────────────
+
+  function abrirModal(id, titulo, preco) {
+    const temPix = !!config.pix_chave;
+
+    document.getElementById('modalTitle').textContent = titulo;
+    document.getElementById('modalSubtitle').textContent = 'Como você quer contribuir?';
+    document.getElementById('modalContent').innerHTML = `
+      <div class="choice-option" id="opt-presente">
+        <h4>🎁 Comprar o presente</h4>
+        <p>${preco ? moeda(preco) : 'Sem valor definido'} — Você compra e entrega no chá</p>
+      </div>
+      ${temPix ? `
+      <div class="choice-option" id="opt-pix">
+        <h4>💰 Contribuir via PIX</h4>
+        <p>Chave: <strong>${config.pix_chave}</strong> (${config.pix_nome || ''})</p>
+      </div>` : ''}
+      <div class="field" style="margin-top:16px;">
+        <label>Mensagem para os pais (opcional)</label>
+        <textarea id="modalMensagem" rows="2" placeholder="Uma mensagem especial..."></textarea>
+      </div>
+      <button class="btn-primary" id="btnConfirmar" style="margin-top:8px;" disabled>
+        Confirmar escolha
+      </button>
+    `;
+
+    let tipoPagamento = null;
+
+    function selecionar(opt, tipo) {
+      document.querySelectorAll('.choice-option').forEach(o => o.style.borderColor = '');
+      opt.style.borderColor = 'var(--rose)';
+      tipoPagamento = tipo;
+      document.getElementById('btnConfirmar').disabled = false;
+    }
+
+    document.getElementById('opt-presente')?.addEventListener('click', () =>
+      selecionar(document.getElementById('opt-presente'), 'presente'));
+
+    document.getElementById('opt-pix')?.addEventListener('click', () =>
+      selecionar(document.getElementById('opt-pix'), 'pix'));
+
+    document.getElementById('btnConfirmar').addEventListener('click', async () => {
+      if (!tipoPagamento) return;
+      const mensagem = document.getElementById('modalMensagem')?.value.trim();
+      document.getElementById('btnConfirmar').disabled = true;
+      document.getElementById('btnConfirmar').textContent = 'Confirmando...';
+      await confirmarEscolha(id, tipoPagamento, preco, mensagem);
+    });
+
+    document.getElementById('modal').classList.add('open');
+  }
+
+  function fecharModal() {
+    document.getElementById('modal').classList.remove('open');
+  }
+
+  document.getElementById('modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal')) fecharModal();
+  });
+
+  // ─── Escolha ──────────────────────────────────────────────────────────────
+
+  async function confirmarEscolha(presenteId, tipo, valor, mensagem) {
+    const result = await registrarEscolha({ presenteId, tipo, valor, mensagem });
+
+    if (result.success) {
+      fecharModal();
+      toast('Presente escolhido com sucesso! 🎉', 'success');
+      await carregarPresentes();
+      await carregarMinhaEscolha();
+      renderizarGrid();
+    } else {
+      toast(result.error || 'Erro ao registrar escolha.', 'error');
+      document.getElementById('btnConfirmar').disabled = false;
+      document.getElementById('btnConfirmar').textContent = 'Confirmar escolha';
+    }
+  }
+
+  // ─── Comentários ──────────────────────────────────────────────────────────
+
+  async function enviarComentario(presenteId, texto) {
+    const user = getUser();
+    const { error } = await supabase.from('comentarios').insert({
+      presente_id: presenteId,
+      usuario_id: user.id,
+      comentario: texto
+    });
+
+    if (!error) {
+      delete comentariosCache[presenteId];
+      const cb = document.getElementById('cb-' + presenteId);
+      const wasOpen = cb?.classList.contains('open');
+      await renderizarGrid();
+      if (wasOpen) document.getElementById('cb-' + presenteId)?.classList.add('open');
+    } else {
+      toast('Erro ao enviar comentário.', 'error');
+    }
+  }
+
+  async function reagir(comentarioId, emoji) {
+    const user = getUser();
+
+    // Buscar reação existente
+    const { data: existente } = await supabase
+      .from('reacoes')
+      .select('id')
+      .eq('comentario_id', comentarioId)
+      .eq('usuario_id', user.id)
+      .eq('emoji', emoji)
+      .maybeSingle();
+
+    if (existente) {
+      await supabase.from('reacoes').delete().eq('id', existente.id);
+    } else {
+      await supabase.from('reacoes').insert({ comentario_id: comentarioId, usuario_id: user.id, emoji });
+    }
+
+    // Limpar cache dos presentes que contêm este comentário
+    comentariosCache = {};
+    renderizarGrid();
+  }
+
+  // ─── Utilitários ──────────────────────────────────────────────────────────
+
+  function toast(msg, tipo = 'info') {
+    const el = document.createElement('div');
+    el.className = `toast ${tipo}`;
+    el.textContent = msg;
+    document.getElementById('toasts').appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
+  function moeda(v) {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v);
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    return String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
+  async function fazerLogout() {
+    await logout();
+    window.location.href = 'login.html';
+  }
+
+  window.fecharModal = fecharModal;
+
+  init();
+</script>
+</body>
+</html>
